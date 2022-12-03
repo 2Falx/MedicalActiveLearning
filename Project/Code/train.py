@@ -267,11 +267,11 @@ def train_active_learning(patch_dir, path_CD, test_path, num_iterations, metrics
         count_uncertain_values = 50
 
         if metrics == "least_confidence":
-            most_uncertain_indeces = np.argsort(np.abs(y_pred - 0.5), axis=0)
+            most_uncertain_indeces = np.argsort(np.abs(model.predict(X_test) - 0.5), axis=0)
             most_uncertain_indeces = most_uncertain_indeces[:count_uncertain_values].flatten()
 
         elif metrics == "entropy":
-            entropy_y = np.transpose(entropy(np.transpose(y_pred)))
+            entropy_y = np.transpose(entropy(np.transpose(model.predict(X_test))))
             most_uncertain_indeces = np.argpartition(-entropy_y, count_uncertain_values - 1, axis=0)[
                                      :count_uncertain_values]
 
