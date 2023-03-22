@@ -39,3 +39,26 @@ first Unet.
 <p align="center">
   <img src="imgs/output.png" alt="Image of output from kmeans and Canny"/>
 </p> 
+
+## Train
+
+### 0) Optional - Create and Activate virtual environment (using Conda)
+```bash
+  $ conda create --name RetinalAL python=3.8
+  $ conda activate RetinalAL
+```
+
+### 1) Install required packages from requirements.txt
+```bash
+  $ pip install -r requirements.txt
+```
+
+### 2) Create patched images
+```bash
+  $ python3 create_patches.py
+```
+
+### 3) Start training
+```bash
+  $ python3 models_training.py
+```
