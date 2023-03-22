@@ -14,7 +14,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from clustering import *
 from canny import *
 from reconstructor import *
-from scipy.stats import entropy
+from scipy.stats import entropy # Uncertainty measure
 
 def append_history(losses, val_losses, accuracy, val_accuracy, history):
     losses = losses + history.history["loss"]
@@ -99,19 +99,21 @@ def shuffle_data(X,y, file_names):
     return X[indices], y[indices], file_names[indices]
 
 
-def train_whole_dataset(patch_dir, path_CD, test_path, use_second_dataset, method):
+def train_whole_dataset(patch_dir, path_CD, test_path, use_second_dataset, method, undersamling = False):
     np.random.seed(42)
     # X, y origin dataset + list of names of files (useful for reconstructing images at the end)
     X, y, file_names_train = get_Xy(patch_dir, external_dataset=False)
-    if use_second_dataset:  # true if we want to add the second dataset
+    if use_second_dataset:  # Add the second dataset
         X_CD_no_vessel, y_CD_no_vessel, file_names_CD = get_Xy(path_CD, external_dataset=True)
         # set file_names_CD to 0 since we will want to reconstruct original data only (i.e. we use this as a flag to ignore)
         file_names_CD = np.zeros((len(file_names_CD),))
         X = np.concatenate((X, X_CD_no_vessel))
         y = np.concatenate((y, y_CD_no_vessel))
         file_names_train = np.concatenate((file_names_train, file_names_CD))
-    # Uncomment if you want to try undersampling
-    # X, y = random_under_sampling(X, y)
+    
+    if undersamling:
+        X, y = random_under_sampling(X, y)
+    
     X_train, y_train, file_names_train = shuffle_data(X,y, file_names_train)
     X_train, train_mean, train_std = normalize(X_train)
     X_test, y_test, file_names_test = get_Xy(test_path, external_dataset=False)
@@ -124,11 +126,16 @@ def train_whole_dataset(patch_dir, path_CD, test_path, use_second_dataset, metho
     #       to the KMeans or to Canny methods, you can skip this CNN.
 
     patch_size = 32
-    # Choose the model you want
-    model = get_pnetcls(patch_size)
-    # model = get_resnet(patch_size)
-    # model = get_vgg(patch_size)
-    #
+    # Choose the model you want by passing the name of the model 
+    if model == "pnet":
+        model = get_pnetcls(patch_size)
+    elif model == "resnet":
+        model = get_resnet(patch_size)
+    elif model == "vgg":
+        model = get_vgg(patch_size)
+    else:
+        raise ValueError(f"Unknown model {model}")
+    
     print('Training model...')
     history = model.fit(
         X_train,
@@ -173,46 +180,56 @@ def train_whole_dataset(patch_dir, path_CD, test_path, use_second_dataset, metho
         for index, X_train_sample in enumerate(X_train):
             clustered_images.append(kmeans(X_train_sample, y_train.squeeze()[index]))
         images_to_rec = np.array(clustered_images)
-    else:
+    elif method == "canny":
         canny_images = []
         for index, X_train_sample in enumerate(X_train):
             canny_images.append(canny(X_train_sample, y_train.squeeze()[index]))
         images_to_rec = np.array(canny_images)
-
+    else:
+        raise ValueError(f"Unknown method: {method}")
+    
     # reconstruct segmented image by patches
     reconstructed_images = reconstruct(images_to_rec, file_names_train)
     return reconstructed_images
 
 # used for active learning
 def shuffle_split_and_normalize(X,y,file_names, X_test_final, train_size):
+    #Select a random split of the data based on random indeces
     indices = np.array(range(len(y)))
     random.shuffle(indices)
     indices_train = np.random.choice(len(y), size=int(train_size*len(y)),replace=False)
     indices_test = np.setxor1d(indices, indices_train)
+    #Split based on indices
     X_train = X[indices_train]
     y_train = y[indices_train]
     file_names_train = np.array(file_names)[indices_train]
     X_test = X[indices_test]
     y_test = y[indices_test]
     file_names_test = np.array(file_names)[indices_test]
+    #Normalize data
     train_mean = np.mean(X)  # mean for data centering
     train_std = np.std(X)  # std for data normalization
+    
     X_train -= train_mean
     X_train /= train_std
+    
     X_test -= train_mean
     X_test /= train_std
+    
     X_test_final -= train_mean
     X_test_final /= train_std
+    
     return X_train, X_test, y_train, y_test, file_names_train, file_names_test, X_test_final
 
 
-def train_active_learning(patch_dir, path_CD, test_path, num_iterations, metrics, use_second_dataset, method):
+def train_active_learning(patch_dir, path_CD, test_path, num_iterations, metrics, use_second_dataset, method,model):
     np.random.seed(42)
     X, y, file_names = get_Xy(patch_dir, external_dataset=False)
     if use_second_dataset:  # true if we want to add the second dataset
         X_CD_no_vessel, y_CD_no_vessel, file_names_CD = get_Xy(path_CD, external_dataset=True)
         # set file_names_CD to 0 since we will want to reconstruct original data only (i.e. we use this as a flag to ignore)
         file_names_CD = np.zeros((len(file_names_CD),))
+        #Concatenate the 2 datasets
         X = np.concatenate((X, X_CD_no_vessel))
         y = np.concatenate((y, y_CD_no_vessel))
         file_names = np.concatenate((file_names, file_names_CD))
@@ -226,9 +243,16 @@ def train_active_learning(patch_dir, path_CD, test_path, num_iterations, metrics
     losses, val_losses, accuracies, val_accuracies = [], [], [], []
 
     patch_size = 32
-    model = get_pnetcls(patch_size)
-    # model = get_resnet(patch_size)
-    # model = get_vgg(patch_size)
+    
+    # Choose the model you want by passing the name of the model 
+    if model == "pnet":
+        model = get_pnetcls(patch_size)
+    elif model == "resnet":
+        model = get_resnet(patch_size)
+    elif model == "vgg":
+        model = get_vgg(patch_size)
+    else:
+        raise ValueError(f"Unknown model {model}")
 
     print("Starting to train... ")
     history = model.fit(
@@ -250,6 +274,8 @@ def train_active_learning(patch_dir, path_CD, test_path, num_iterations, metrics
     #  Active Learning iterations
     for iteration in range(num_iterations):
         y_pred = model.predict(X_test_final)
+        
+        # Assign 1 to elements of y_pred < .5, 0 otherwise
         y_pred_rounded = np.where(np.greater(y_pred, 0.5), 1, 0)
 
         accuracy_score_test = accuracy_score(y_test_final, y_pred_rounded)
@@ -271,9 +297,15 @@ def train_active_learning(patch_dir, path_CD, test_path, num_iterations, metrics
             most_uncertain_indeces = most_uncertain_indeces[:count_uncertain_values].flatten()
 
         elif metrics == "entropy":
+            # Entropy of the predictions on the test dataset. (transpose function = column-wise entropy)
             entropy_y = np.transpose(entropy(np.transpose(model.predict(X_test))))
-            most_uncertain_indeces = np.argpartition(-entropy_y, count_uncertain_values - 1, axis=0)[
-                                     :count_uncertain_values]
+            # Finds indices of the most uncertain predictions in the test dataset:
+                # argpartition returns the indices that would partition the array in descending order of the values along the specified axis.
+                # axis=0 to partition the array column-wise.
+                # -entropy_y to return the highest entropy values (the most uncertain predictions)
+            most_uncertain_indeces = np.argpartition(-entropy_y, count_uncertain_values - 1, axis=0)[:count_uncertain_values]
+        else:
+            raise ValueError(f"Unknown metrics: {metrics}")
 
         print(f"X_train.shape: {X_train.shape}")
         print(f"X_test[most_uncertain_indeces, :, :, :].shape: {X_test[most_uncertain_indeces, :, :, :].shape}")
@@ -339,11 +371,13 @@ def train_active_learning(patch_dir, path_CD, test_path, num_iterations, metrics
         for index, X_train_sample in enumerate(X):
             clustered_images.append(kmeans(X_train_sample, y[index]))
         images_to_rec = np.array(clustered_images)
-    else:
+    elif method == "canny":
         canny_images = []
         for index, X_train_sample in enumerate(X):
             canny_images.append(canny(X_train_sample, y[index]))
         images_to_rec = np.array(canny_images)
+    else:
+        raise ValueError(f"Unknown method: {method}")
 
     # reconstruct segmented image by patches
     reconstructed_images = reconstruct(images_to_rec, file_names)
