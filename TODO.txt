@@ -1,0 +1,9 @@
+Check the train_active_learning function:
+
+Problem: 
+The train_active_learning function use the whole(!!) training dataset and then select the most uncertainty images from the test dataset to be added to the training dataset.
+Possible solution:
+You should mantain always the same test dataset and start the recursive active learning training using a small portion (e.g. 20%) of the whole training dataset, labelled training dataset.
+Then compute the uncertainty measure for the remaining 80% of the training dataset, unlabeled training dataset, and add the most uncertainty images to the labelled training dataset.
+Iterate this process untill the unlabeled training dataset is empty.
+Then test of the test set.
