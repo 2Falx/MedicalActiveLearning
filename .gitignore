@@ -1,0 +1,8 @@
+__pycache__/
+Nets/__pycache__/
+
+train/patched_images/
+train/patched_images_test/
+train/images_with_grid/
+
+*Checkpoint*
