@@ -24,8 +24,8 @@ def main():
     mask_train_images = [item for item in os.listdir(mask_path) if re.search("_training", item)]
     label_train_images = [item for item in os.listdir(label_path) if re.search("manual", item)]
 
-    for i, j in enumerate(input_train_images):
-        image = io.imread(masked_train_path + j)
+    for i, img_name in enumerate(input_train_images):
+        image = io.imread(masked_train_path + img_name)
         mask_image = io.imread(mask_path + mask_train_images[i])
         label_image = io.imread(label_path + label_train_images[i])
         mask_mat = np.array(mask_image)
@@ -76,14 +76,14 @@ def main():
 
                 # If you want to remove all the images which are totally black
                 if np.max(toSave) != 0:
-                    if "37" in j or "38" in j or "39" in j or "40" in j:
+                    if "37" in img_name or "38" in img_name or "39" in img_name or "40" in img_name:
                         Path('train/patched_images_test/').mkdir(parents=True, exist_ok=True)
-                        createAndSaveImage(toSave, saved_path_test + f"{label}_{m}_{n}_{j[:-3]}jpg")
+                        createAndSaveImage(toSave, saved_path_test + f"{label}_{m}_{n}_{img_name[:-3]}jpg")
                     else:
-                        createAndSaveImage(toSave, saved_path + f"{label}_{m}_{n}_{j[:-3]}jpg")
+                        createAndSaveImage(toSave, saved_path + f"{label}_{m}_{n}_{img_name[:-3]}jpg")
 
-        createAndSaveImage(prob_mat, grid_path + j)
-        print("Patches generated")
+        createAndSaveImage(prob_mat, grid_path + img_name)
+        print(f"Patches generated for image {img_name}")
 
 
 if __name__ == "__main__":
